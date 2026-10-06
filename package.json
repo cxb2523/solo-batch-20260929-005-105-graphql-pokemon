@@ -42,8 +42,9 @@
   "scripts": {
     "eslint": "eslint src/*",
     "build-app": "rm -rf dist/* && babel src --out-dir dist --copy-files",
-    "build-schema": "babel-node ./scripts/buildSchema.js",
-    "start": "node dist/index.js",
-    "watch": "nodemon src/index.js --exec babel-node --copy-files"
+    "build-schema": "node ./scripts/buildSchema.js",
+    "start": "node src/app.js",
+    "watch": "nodemon src/app.js",
+    "test": "node --test test/pokemonQuery.test.js"
   }
 }

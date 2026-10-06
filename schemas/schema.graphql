@@ -84,9 +84,39 @@ type PokemonEvolutionRequirement {
   name: String
 }
 
+# A filtered, paginated page of Pokémon
+type PokemonsPage {
+  # Pokémon matching the filters for the current page, ordered by id ascending
+  items: [Pokemon]!
+
+  # Total number of Pokémon matching the filters (ignoring limit/offset)
+  total: Int!
+
+  # Whether another page of matching Pokémon exists after this one
+  hasNextPage: Boolean!
+}
+
 # Query any Pokémon by number or name
 type Query {
   query: Query
-  pokemons(first: Int!): [Pokemon]
+  pokemons(first: Int): [Pokemon]
+
+  # Pokémon with filtering (name substring, type, evolution stage) and keyset-free offset pagination
+  pokemonsPage(
+    # Case-insensitive substring matched against the Pokémon name
+    name: String
+
+    # Type the Pokémon must have (case-insensitive), e.g. "Fire"
+    type: String
+
+    # Evolution stage: 1 = base form, 2 = first evolution, 3 = second evolution
+    evolutionStage: Int
+
+    # Page size, maximum 100 (defaults to 20)
+    limit: Int
+
+    # Zero-based number of matching Pokémon to skip (defaults to 0)
+    offset: Int
+  ): PokemonsPage!
   pokemon(id: String, name: String): Pokemon
 }

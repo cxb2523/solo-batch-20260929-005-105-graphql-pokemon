@@ -1,9 +1,9 @@
-import { GraphQLSchema } from 'graphql';
+const { GraphQLSchema } = require('graphql');
 
-import QueryType from './type/QueryType';
+const QueryType = require('./type/QueryType');
 
 const schema = new GraphQLSchema({
   query: QueryType,
 });
 
-export default schema;
+module.exports = schema;

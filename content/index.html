@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pokémon 筛选分页查询</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, "Segoe UI", Roboto, "PingFang SC",
+        "Microsoft YaHei", sans-serif;
+      background: #f6f8fb;
+      color: #1f2933;
+    }
+    header {
+      background: linear-gradient(120deg, #ef5350, #fb8c00);
+      color: #fff;
+      padding: 20px 28px;
+    }
+    header h1 { margin: 0; font-size: 20px; }
+    header p { margin: 4px 0 0; opacity: .9; font-size: 13px; }
+    main { max-width: 960px; margin: 0 auto; padding: 20px; }
+    .panel {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(31, 41, 51, .08);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    form {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+    label { display: flex; flex-direction: column; font-size: 12px; color: #52606d; gap: 4px; }
+    input, select, button {
+      font: inherit;
+      padding: 8px 10px;
+      border: 1px solid #cbd2d9;
+      border-radius: 6px;
+      background: #fff;
+    }
+    input:focus, select:focus { outline: 2px solid #fb8c0055; border-color: #fb8c00; }
+    button {
+      background: #ef5350;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover { background: #e53935; }
+    button:disabled { background: #cbd2d9; cursor: not-allowed; }
+    button.secondary { background: #455a64; }
+    button.secondary:hover { background: #37474f; }
+    .meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      color: #52606d;
+      margin-bottom: 10px;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .meta strong { color: #ef5350; }
+    .pager { display: flex; gap: 8px; align-items: center; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eef1f5; }
+    th { color: #52606d; font-weight: 600; background: #fafbfc; }
+    tr:last-child td { border-bottom: none; }
+    .pill {
+      display: inline-block;
+      background: #fff3e0;
+      color: #e65100;
+      border-radius: 999px;
+      padding: 1px 9px;
+      font-size: 11px;
+      margin-right: 4px;
+    }
+    .error {
+      background: #fdecea;
+      color: #b71c1c;
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 13px;
+      white-space: pre-wrap;
+    }
+    .muted { color: #9aa5b1; text-align: center; padding: 24px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Pokémon 筛选分页查询（pokemonsPage）</h1>
+    <p>按名字子串（忽略大小写）、属性类型、进化阶段过滤，id 升序稳定分页 · 每改一个参数即自动查询</p>
+  </header>
+  <main>
+    <div class="panel">
+      <form id="filters">
+        <label>名字包含
+          <input id="name" name="name" placeholder="如 char" autocomplete="off">
+        </label>
+        <label>属性类型
+          <select id="type" name="type">
+            <option value="">全部</option>
+            <option>Normal</option><option>Fire</option><option>Water</option>
+            <option>Electric</option><option>Grass</option><option>Ice</option>
+            <option>Fighting</option><option>Poison</option><option>Ground</option>
+            <option>Flying</option><option>Psychic</option><option>Bug</option>
+            <option>Rock</option><option>Ghost</option><option>Dragon</option>
+            <option>Dark</option><option>Steel</option><option>Fairy</option>
+          </select>
+        </label>
+        <label>进化阶段
+          <select id="evolutionStage" name="evolutionStage">
+            <option value="">全部</option>
+            <option value="1">1 - 初始形态</option>
+            <option value="2">2 - 一阶进化</option>
+            <option value="3">3 - 二阶进化</option>
+          </select>
+        </label>
+        <label>每页条数 limit（≤100）
+          <input id="limit" name="limit" type="number" min="1" max="100" value="10">
+        </label>
+        <button type="submit">查询</button>
+      </form>
+    </div>
+
+    <div id="error" class="error" hidden></div>
+
+    <div class="panel">
+      <div class="meta">
+        <div>命中总数 <strong id="total">0</strong> 条 · 当前页 <span id="range">0–0</span> · hasNextPage: <strong id="hasNextPage">false</strong></div>
+        <div class="pager">
+          <button type="button" id="prev" class="secondary">上一页</button>
+          <span>offset <strong id="offset">0</strong></span>
+          <button type="button" id="next" class="secondary">下一页</button>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr><th>ID</th><th>编号</th><th>名字</th><th>类型</th></tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div id="empty" class="muted" hidden>当前页没有数据（offset 越界时 items 为空，但 total 仍是真实匹配数）</div>
+    </div>
+  </main>
+
+  <script>
+    const QUERY = [
+      'query PokemonsPage($name: String, $type: String, $evolutionStage: Int, $limit: Int, $offset: Int) {',
+      '  pokemonsPage(name: $name, type: $type, evolutionStage: $evolutionStage, limit: $limit, offset: $offset) {',
+      '    total',
+      '    hasNextPage',
+      '    items { id number name types }',
+      '  }',
+      '}'
+    ].join('\n');
+
+    const state = { offset: 0 };
+
+    function collectVariables(resetOffset) {
+      const name = document.getElementById('name').value.trim();
+      const type = document.getElementById('type').value;
+      const evolutionStage = document.getElementById('evolutionStage').value;
+      const limitRaw = document.getElementById('limit').value;
+      const limit = Number(limitRaw === '' ? 10 : limitRaw);
+
+      if (resetOffset) state.offset = 0;
+
+      return {
+        name: name || null,
+        type: type || null,
+        evolutionStage: evolutionStage === '' ? null : Number(evolutionStage),
+        limit,
+        offset: state.offset
+      };
+    }
+
+    async function runQuery() {
+      const variables = collectVariables(false);
+      const errorBox = document.getElementById('error');
+      errorBox.hidden = true;
+
+      try {
+        const response = await fetch('/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: QUERY, variables })
+        });
+        const payload = await response.json();
+
+        if (payload.errors) {
+          throw new Error(payload.errors.map(e => e.message).join('\n'));
+        }
+
+        render(variables, payload.data.pokemonsPage);
+      } catch (error) {
+        errorBox.textContent = 'GraphQL 错误：' + error.message;
+        errorBox.hidden = false;
+      }
+    }
+
+    function render(variables, page) {
+      document.getElementById('total').textContent = page.total;
+      document.getElementById('hasNextPage').textContent = page.hasNextPage;
+      document.getElementById('offset').textContent = variables.offset;
+
+      const start = page.items.length === 0 ? 0 : variables.offset + 1;
+      const end = variables.offset + page.items.length;
+      document.getElementById('range').textContent = start + '-' + end;
+
+      document.getElementById('prev').disabled = variables.offset === 0;
+      document.getElementById('next').disabled = !page.hasNextPage;
+      document.getElementById('empty').hidden = page.items.length !== 0;
+
+      const rows = document.getElementById('rows');
+      rows.innerHTML = '';
+      page.items.forEach((pokemon) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' + pokemon.id + '</td>' +
+          '<td>' + pokemon.number + '</td>' +
+          '<td>' + pokemon.name + '</td>' +
+          '<td>' + (pokemon.types || []).map(t => '<span class="pill">' + t + '</span>').join('') + '</td>';
+        rows.appendChild(tr);
+      });
+    }
+
+    document.getElementById('filters').addEventListener('submit', (event) => {
+      event.preventDefault();
+      state.offset = 0;
+      runQuery();
+    });
+
+    ['name', 'type', 'evolutionStage', 'limit'].forEach((id) => {
+      const node = document.getElementById(id);
+      node.addEventListener('input', () => { state.offset = 0; runQuery(); });
+      node.addEventListener('change', () => { state.offset = 0; runQuery(); });
+    });
+
+    document.getElementById('prev').addEventListener('click', () => {
+      const limit = Number(document.getElementById('limit').value || 10);
+      state.offset = Math.max(0, state.offset - limit);
+      runQuery();
+    });
+
+    document.getElementById('next').addEventListener('click', () => {
+      const limit = Number(document.getElementById('limit').value || 10);
+      state.offset += limit;
+      runQuery();
+    });
+
+    runQuery();
+  </script>
+</body>
+</html>

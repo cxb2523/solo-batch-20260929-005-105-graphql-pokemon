@@ -1,9 +1,9 @@
-import {
+const {
   GraphQLObjectType,
   GraphQLString,
   GraphQLList,
   GraphQLInt,
-} from 'graphql';
+} = require('graphql');
 
 const AttackType = new GraphQLObjectType({
   name: 'Attack',
@@ -27,7 +27,7 @@ const AttackType = new GraphQLObjectType({
   },
 });
 
-export default new GraphQLObjectType({
+module.exports = new GraphQLObjectType({
   name: 'PokemonAttack',
   description: 'Represents a Pokémon\'s attack types',
   fields: () => ({

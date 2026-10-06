@@ -1,10 +1,10 @@
-import {
+const {
   GraphQLObjectType,
   GraphQLInt,
   GraphQLString,
-} from 'graphql';
+} = require('graphql');
 
-export default new GraphQLObjectType({
+module.exports = new GraphQLObjectType({
   name: 'PokemonEvolutionRequirement',
   description: 'Represents a Pokémon\'s requirement to evolve',
   fields: {

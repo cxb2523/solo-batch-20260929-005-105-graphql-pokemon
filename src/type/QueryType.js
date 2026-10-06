@@ -1,22 +1,21 @@
-import {
+const {
   GraphQLObjectType,
   GraphQLInt,
   GraphQLString,
   GraphQLList,
   GraphQLNonNull,
-} from 'graphql';
-import {
-  fromGlobalId,
-} from 'graphql-relay';
+} = require('graphql');
+const { fromGlobalId } = require('graphql-relay');
 
-import PokemonType from './PokemonType';
+const PokemonType = require('./PokemonType');
+const PokemonsPageType = require('./PokemonsPageType');
 
-import {
+const {
   getPokemons,
   getPokemonById,
   getPokemonByName,
-} from '../service/Pokemon';
-
+  queryPokemons,
+} = require('../service/Pokemon');
 
 const QueryType = new GraphQLObjectType({
   name: 'Query',
@@ -27,13 +26,43 @@ const QueryType = new GraphQLObjectType({
       resolve: (...args) => args,
     },
     pokemons: {
+      // Return type is intentionally left untouched: a plain [Pokemon] list.
       type: new GraphQLList(PokemonType),
       args: {
         first: {
-          type: new GraphQLNonNull(GraphQLInt),
+          type: GraphQLInt,
         },
       },
+      // Called without arguments the field keeps returning the full array
+      // with exactly the same shape as before, so old clients do not break.
       resolve: async (obj, args) => await getPokemons(args),
+    },
+    pokemonsPage: {
+      type: new GraphQLNonNull(PokemonsPageType),
+      description: 'Pokémon with filtering (name substring, type, evolution stage) and keyset-free offset pagination',
+      args: {
+        name: {
+          type: GraphQLString,
+          description: 'Case-insensitive substring matched against the Pokémon name',
+        },
+        type: {
+          type: GraphQLString,
+          description: 'Type the Pokémon must have (case-insensitive), e.g. "Fire"',
+        },
+        evolutionStage: {
+          type: GraphQLInt,
+          description: 'Evolution stage: 1 = base form, 2 = first evolution, 3 = second evolution',
+        },
+        limit: {
+          type: GraphQLInt,
+          description: 'Page size, maximum 100 (defaults to 20)',
+        },
+        offset: {
+          type: GraphQLInt,
+          description: 'Zero-based number of matching Pokémon to skip (defaults to 0)',
+        },
+      },
+      resolve: async (obj, args) => await queryPokemons(args),
     },
     pokemon: {
       type: PokemonType,
@@ -62,4 +91,4 @@ const QueryType = new GraphQLObjectType({
   }),
 });
 
-export default QueryType;
+module.exports = QueryType;

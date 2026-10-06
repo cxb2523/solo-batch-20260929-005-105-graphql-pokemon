@@ -1,19 +1,17 @@
-import {
+const {
   GraphQLObjectType,
   GraphQLString,
   GraphQLInt,
   GraphQLFloat,
   GraphQLList,
-} from 'graphql';
-import {
-  globalIdField,
-} from 'graphql-relay';
+} = require('graphql');
+const { globalIdField } = require('graphql-relay');
 
-import PokemonDimensionType from './PokemonDimensionType';
-import PokemonAttackType from './PokemonAttackType';
-import EvolutionRequirementType from './EvolutionRequirementType';
+const PokemonDimensionType = require('./PokemonDimensionType');
+const PokemonAttackType = require('./PokemonAttackType');
+const EvolutionRequirementType = require('./EvolutionRequirementType');
 
-import { getPokemonByEvolutions } from '../service/Pokemon';
+const { getPokemonByEvolutions } = require('../service/Pokemon');
 
 const PokemonType = new GraphQLObjectType({
   name: 'Pokemon',
@@ -97,4 +95,4 @@ const PokemonType = new GraphQLObjectType({
   }),
 });
 
-export default PokemonType;
+module.exports = PokemonType;
