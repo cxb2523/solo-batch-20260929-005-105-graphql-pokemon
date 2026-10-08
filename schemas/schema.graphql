@@ -84,9 +84,61 @@ type PokemonEvolutionRequirement {
   name: String
 }
 
+# The elemental kind(s) a Pokémon can have
+enum PokemonKind {
+  NORMAL
+  FIRE
+  WATER
+  ELECTRIC
+  GRASS
+  ICE
+  FIGHTING
+  POISON
+  GROUND
+  FLYING
+  PSYCHIC
+  BUG
+  ROCK
+  GHOST
+  DRAGON
+  DARK
+  STEEL
+  FAIRY
+}
+
+# A stable, id-ascending page of filtered Pokémon
+type PokemonPage {
+  # Pokémon on the current page, ordered by id ascending
+  items: [Pokemon!]!
+
+  # Total number of Pokémon matching the filters
+  total: Int!
+
+  # Whether a subsequent page with the same filters exists
+  hasNextPage: Boolean!
+}
+
 # Query any Pokémon by number or name
 type Query {
   query: Query
-  pokemons(first: Int!): [Pokemon]
+  pokemons(first: Int): [Pokemon]
+
+  # Filter and paginate Pokémon. Results are stably sorted by id ascending; limit is capped at 100.
+  pokemonsV2(
+    # Case-insensitive substring matched against the Pokémon name
+    name: String
+
+    # Elemental kind the Pokémon must have
+    type: PokemonKind
+
+    # 1 = base, 2 = intermediate, 3 = final form
+    evolutionStage: Int
+
+    # Page size, 1..100 (default 100)
+    limit: Int
+
+    # Zero-based offset into the filtered, id-ascending result list
+    offset: Int
+  ): PokemonPage!
   pokemon(id: String, name: String): Pokemon
 }

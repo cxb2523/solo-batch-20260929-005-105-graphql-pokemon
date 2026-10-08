@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GraphQL Pokémon · 筛选分页演示</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f5f6fa;
+      color: #2d3436;
+    }
+    header {
+      background: linear-gradient(135deg, #ee5253, #ff9f43);
+      color: #fff;
+      padding: 20px 28px;
+    }
+    header h1 { margin: 0; font-size: 20px; }
+    header p { margin: 4px 0 0; opacity: .9; font-size: 13px; }
+    main { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+    form {
+      background: #fff;
+      border-radius: 10px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.06);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+    label { display: flex; flex-direction: column; font-size: 12px; font-weight: 600; gap: 4px; }
+    input, select, button {
+      font: inherit;
+      padding: 8px 10px;
+      border: 1px solid #dcdde1;
+      border-radius: 6px;
+      background: #fff;
+    }
+    button {
+      background: #ee5253;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-weight: 700;
+      grid-column: 1 / -1;
+    }
+    button:disabled { opacity: .5; cursor: default; }
+    button.secondary { background: #576574; }
+    .meta { margin: 16px 4px 8px; font-size: 13px; }
+    .error {
+      background: #ffe3e3; color: #c0392b; border-radius: 8px;
+      padding: 10px 14px; margin: 12px 4px; font-size: 13px; white-space: pre-wrap;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    }
+    th, td { padding: 9px 12px; text-align: left; font-size: 13px; border-bottom: 1px solid #f1f2f6; }
+    th { background: #f1f2f6; }
+    .pager { display: flex; gap: 10px; margin: 14px 4px; }
+    .pager button { grid-column: auto; padding: 8px 18px; }
+    .badge {
+      display: inline-block; font-size: 11px; padding: 1px 8px;
+      border-radius: 999px; background: #e3f2fd; color: #1565c0; margin-right: 4px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>GraphQL Pokémon · pokemonsV2 筛选分页</h1>
+    <p>填参即查：名字子串（忽略大小写）/ 属性类型 / 进化阶段，按 id 升序翻页</p>
+  </header>
+  <main>
+    <form id="qform">
+      <label>名字包含 <input id="name" name="name" placeholder="例如 char" value=""></label>
+      <label>属性类型
+        <select id="type" name="type">
+          <option value="">（不限）</option>
+        </select>
+      </label>
+      <label>进化阶段
+        <select id="evolutionStage" name="evolutionStage">
+          <option value="">（不限）</option>
+          <option value="1">1 · 初始形态</option>
+          <option value="2">2 · 中间形态</option>
+          <option value="3">3 · 最终形态</option>
+        </select>
+      </label>
+      <label>每页条数 (≤100) <input id="limit" name="limit" type="number" min="1" max="100" value="20"></label>
+      <label>偏移 offset <input id="offset" name="offset" type="number" min="0" value="0"></label>
+      <button type="submit">查询</button>
+    </form>
+
+    <div id="error" class="error" hidden></div>
+    <div id="meta" class="meta"></div>
+    <table>
+      <thead>
+        <tr><th>#</th><th>名称</th><th>类型</th><th>阶段</th><th>分类</th></tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="pager">
+      <button id="prev" class="secondary" type="button">上一页</button>
+      <button id="next" class="secondary" type="button">下一页</button>
+    </div>
+  </main>
+
+  <script>
+    const KINDS = ['NORMAL','FIRE','WATER','ELECTRIC','GRASS','ICE','FIGHTING','POISON',
+      'GROUND','FLYING','PSYCHIC','BUG','ROCK','GHOST','DRAGON','DARK','STEEL','FAIRY'];
+    const typeSelect = document.getElementById('type');
+    KINDS.forEach(k => {
+      const opt = document.createElement('option');
+      opt.value = k; opt.textContent = k;
+      typeSelect.appendChild(opt);
+    });
+
+    const form = document.getElementById('qform');
+    const errorBox = document.getElementById('error');
+    const metaBox = document.getElementById('meta');
+    const rows = document.getElementById('rows');
+    const prevBtn = document.getElementById('prev');
+    const nextBtn = document.getElementById('next');
+    let lastTotal = 0;
+
+    function readArgs() {
+      const args = {};
+      const name = document.getElementById('name').value.trim();
+      const type = typeSelect.value;
+      const stage = document.getElementById('evolutionStage').value;
+      const limit = parseInt(document.getElementById('limit').value, 10);
+      const offset = parseInt(document.getElementById('offset').value, 10);
+      if (name) args.name = name;
+      if (type) args.type = type;
+      if (stage) args.evolutionStage = parseInt(stage, 10);
+      args.limit = Number.isFinite(limit) ? limit : 20;
+      args.offset = Number.isFinite(offset) && offset >= 0 ? offset : 0;
+      return args;
+    }
+
+    function buildQuery(args) {
+      return `query ($name: String, $type: PokemonKind, $evolutionStage: Int, $limit: Int, $offset: Int) {
+  pokemonsV2(name: $name, type: $type, evolutionStage: $evolutionStage, limit: $limit, offset: $offset) {
+    total
+    hasNextPage
+    items { number name types classification }
+  }
+}`;
+    }
+
+    async function runQuery() {
+      errorBox.hidden = true;
+      const args = readArgs();
+      const resp = await fetch('/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: buildQuery(), variables: args }),
+      });
+      const payload = await resp.json();
+      if (payload.errors) {
+        errorBox.textContent = payload.errors.map(e => e.message).join('\n');
+        errorBox.hidden = false;
+        rows.innerHTML = '';
+        metaBox.textContent = '';
+        prevBtn.disabled = true;
+        nextBtn.disabled = true;
+        return;
+      }
+      const page = payload.data.pokemonsV2;
+      lastTotal = page.total;
+      metaBox.textContent = `total = ${page.total} · 当前返回 ${page.items.length} 条 · hasNextPage = ${page.hasNextPage} · offset = ${args.offset}`;
+      rows.innerHTML = page.items.map(p => `
+        <tr>
+          <td>${p.number}</td>
+          <td>${p.name}</td>
+          <td>${(p.types || []).map(t => `<span class="badge">${t}</span>`).join('')}</td>
+          <td>${p.classification || ''}</td>
+        </tr>`).join('');
+      prevBtn.disabled = args.offset === 0;
+      nextBtn.disabled = !page.hasNextPage;
+    }
+
+    function bumpOffset(delta) {
+      const limit = parseInt(document.getElementById('limit').value, 10) || 20;
+      const offsetEl = document.getElementById('offset');
+      offsetEl.value = Math.max(0, (parseInt(offsetEl.value, 10) || 0) + delta * limit);
+      runQuery();
+    }
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      document.getElementById('offset').value = 0;
+      runQuery();
+    });
+    prevBtn.addEventListener('click', () => bumpOffset(-1));
+    nextBtn.addEventListener('click', () => bumpOffset(1));
+
+    runQuery();
+  </script>
+</body>
+</html>
